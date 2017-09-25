@@ -234,6 +234,7 @@ void ComputerSystem_DebugMessage(int msgNo, char section, ...) {
 
 void ComputerSystem_PrintProgramList(){
 	int i;
+	ComputerSystem_Show(INIT);
 	ComputerSystem_DebugMessage(101,INIT);
 	for(i=0;i<USERPROGRAMSMAXNUMBER;i++){
 		if(userProgramsList[i] != NULL){

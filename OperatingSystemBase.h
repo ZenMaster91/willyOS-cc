@@ -15,8 +15,24 @@ void OperatingSystem_ShowTime(char);
 void OperatingSystem_PrintStatus();
 void OperatingSystem_PrintReadyToRunQueue();
 int OperatingSystem_IsThereANewProgram();
+int OperatingSystem_InitializePartitionTable();
+void OperatingSystem_ShowPartitionTable(char *); 
+
 
 extern int sleepingProcessesQueue[PROCESSTABLEMAXSIZE];
 extern int numberOfSleepingProcesses; 
+
+#ifdef MEMCONFIG
+// Copy to OperatingSystem.h Exercise 8 of V4
+typedef struct {
+     int occupied;
+     int initAddress; // Lowest physical address of the partition
+     int size; // Size of the partition in memory positions
+     int PID; // PID of the process using the partition, if occupied
+} PARTITIONDATA;
+
+#define PARTITIONTABLEMAXSIZE PROCESSTABLEMAXSIZE*2
+extern PARTITIONDATA partitionsTable[PARTITIONTABLEMAXSIZE];
+#endif
 
 #endif

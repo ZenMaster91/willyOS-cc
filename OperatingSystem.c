@@ -30,6 +30,14 @@ void OperatingSystem_HandleClockInterrupt();
 void OperatingSystem_MoveToTheBLOCKEDState();
 void OperatingSystem_CheckPriority();
 void OperatingSystem_PrintStatus();
+int Processor_GetExceptionType();
+int OperatingSystem_InitializePartitionTable();
+int OperatingSystem_getBiggestPart();
+void OperatingSystem_ReleaseMainMemory();
+void OperatingSystem_AsignaMemoria(int,int);
+int OperatingSystem_ThereArePrograms();
+
+
 
 //Estados de los procesos
 char * statesNames [5]={"NEW","READY","EXECUTING","BLOCKED","EXIT"}; 
@@ -60,6 +68,12 @@ int numberOfClockInterrupts=0;
 int sleepingProcessesQueue[PROCESSTABLEMAXSIZE];
 int numberOfSleepingProcesses=0;
 
+//Numero de particiones
+int numberOfPartitions=0;
+
+int freePart;
+
+
 // Initial set of tasks of the OS
 void OperatingSystem_Initialize() {
 	
@@ -84,6 +98,10 @@ void OperatingSystem_Initialize() {
 	// Initialization of the interrupt vector table of the processor
 	Processor_InitializeInterruptVectorTable(OS_address_base);
 	
+	//Ejercicio 5 Inicializa la tabla de particiones y devuelve el número de particiones
+	numberOfPartitions=OperatingSystem_InitializePartitionTable();
+	freePart=numberOfPartitions;
+	
 	
 	// Create all system daemon processes
 	OperatingSystem_CreateDaemons();
@@ -95,9 +113,10 @@ void OperatingSystem_Initialize() {
 	}
 	
 	OperatingSystem_PrintStatus();
+	
 	// Create all user processes from the information given in the command line
 	numberOfSuccessfullyCreatedProcesses=OperatingSystem_LongTermScheduler();
-	if(numberOfSuccessfullyCreatedProcesses==0 && OperatingSystem_IsThereANewProgram()!=0){
+	if(numberOfSuccessfullyCreatedProcesses==0 && OperatingSystem_IsThereANewProgram()==-1){
 		OperatingSystem_ReadyToShutdown();
 	}
 	
@@ -131,12 +150,11 @@ void OperatingSystem_CreateDaemons() {
 // Initially, it creates a process from each program specified in the command line
 int OperatingSystem_LongTermScheduler() {
   
-	int PID, i,
+	int PID,
 	numberOfSuccessfullyCreatedProcesses=0;
 	int process=0;	
 
-	for (i=0 ; userProgramsList[i]!=NULL && i<USERPROGRAMSMAXNUMBER ; i++) {
-		if(OperatingSystem_IsThereANewProgram()==1){
+	while(OperatingSystem_IsThereANewProgram()==1){
 			process=Heap_poll(arrivalTimeQueue,QUEUE_ARRIVAL,&numberOfProgramsInArrivalTimeQueue);
 			PID=OperatingSystem_CreateProcess(*userProgramsList[process]);
 			numberOfSuccessfullyCreatedProcesses++;
@@ -145,22 +163,27 @@ int OperatingSystem_LongTermScheduler() {
 		//el proceso no se ha creado correctamente
 		if(PID==NOFREEENTRY){
 			OperatingSystem_ShowTime(ERROR);
-			ComputerSystem_DebugMessage(103,ERROR,userProgramsList[i]->executableName);
+			ComputerSystem_DebugMessage(103,ERROR,userProgramsList[process]->executableName);
 			numberOfSuccessfullyCreatedProcesses--;
 		}
 		else if(PID==PROGRAMDOESNOTEXIST){
 			OperatingSystem_ShowTime(ERROR);
-			ComputerSystem_DebugMessage(104,ERROR,userProgramsList[i]->executableName," it does not exist");
+			ComputerSystem_DebugMessage(104,ERROR,userProgramsList[process]->executableName," it does not exist");
 			numberOfSuccessfullyCreatedProcesses--;
 		}
 		else if(PID==PROGRAMNOTVALID){
 			OperatingSystem_ShowTime(ERROR);
-			ComputerSystem_DebugMessage(104,ERROR,userProgramsList[i]->executableName,"invalid priority or size");
+			ComputerSystem_DebugMessage(104,ERROR,userProgramsList[process]->executableName,"invalid priority or size");
 			numberOfSuccessfullyCreatedProcesses--;
 		}
 		else if(PID==TOOBIGPROCESS){
 			OperatingSystem_ShowTime(ERROR);
-			ComputerSystem_DebugMessage(105,ERROR,userProgramsList[i]->executableName);
+			ComputerSystem_DebugMessage(105,ERROR,userProgramsList[process]->executableName);
+			numberOfSuccessfullyCreatedProcesses--;
+		}
+		else if(PID==MEMORYFULL){
+			OperatingSystem_ShowTime(ERROR);
+			ComputerSystem_DebugMessage(144,ERROR,userProgramsList[process]->executableName);
 			numberOfSuccessfullyCreatedProcesses--;
 		}
 		else if(PID!=0){
@@ -168,13 +191,19 @@ int OperatingSystem_LongTermScheduler() {
 		OperatingSystem_ShowTime(INIT);
 		ComputerSystem_DebugMessage(22,INIT,PID,userProgramsList[process]->executableName);
 		}
-		}
+		
 	}
 	if(numberOfSuccessfullyCreatedProcesses>0){
 		OperatingSystem_PrintStatus();
 	}
 	numberOfNotTerminatedUserProcesses+=numberOfSuccessfullyCreatedProcesses;
 	// Return the number of succesfully created processes
+	
+	int shoot = OperatingSystem_ThereArePrograms();
+	
+	if(OperatingSystem_IsThereANewProgram()==-1 && executingProcessID == sipID && shoot==0){
+		OperatingSystem_ReadyToShutdown();
+	}
 	return numberOfSuccessfullyCreatedProcesses;
 }
 
@@ -206,19 +235,29 @@ int OperatingSystem_CreateProcess(USER_PROGRAMS_DATA executableProgram) {
 	if(processSize==PROGRAMDOESNOTEXIST){
 		return processSize;
 	}
-
+	
 	// Obtain the priority for the process
 	priority=OperatingSystem_ObtainPriority(programFile);
+	if(priority==PROGRAMNOTVALID){
+		return priority;
+	}
 	
 	// Obtain enough memory space
- 	int isBig=loadingPhysicalAddress=OperatingSystem_ObtainMainMemory(processSize, PID);
-	if(isBig==TOOBIGPROCESS){
-		return isBig;
+ 	loadingPhysicalAddress=OperatingSystem_ObtainMainMemory(processSize, PID);
+	if(loadingPhysicalAddress==TOOBIGPROCESS){
+		return loadingPhysicalAddress;
 	}
+	if(loadingPhysicalAddress==MEMORYFULL){
+		return loadingPhysicalAddress;
+	}
+	
 	// Load program in the allocated memory
-	int big = OperatingSystem_LoadProgram(programFile, loadingPhysicalAddress, processSize);
+	int big = OperatingSystem_LoadProgram(programFile,partitionsTable[loadingPhysicalAddress].initAddress, processSize);
 	if(big==TOOBIGPROCESS){
 		return big;
+	}
+	if(loadingPhysicalAddress!=MEMORYFULL){
+	OperatingSystem_AsignaMemoria(loadingPhysicalAddress,PID);
 	}
 	
 	//Controlamos la cola a la que quiere acceder
@@ -227,7 +266,7 @@ int OperatingSystem_CreateProcess(USER_PROGRAMS_DATA executableProgram) {
 		isDemon=0;
 	}
 	// PCB initialization
-	OperatingSystem_PCBInitialization(PID, loadingPhysicalAddress, processSize, priority, queueID);
+	OperatingSystem_PCBInitialization(PID,partitionsTable[loadingPhysicalAddress].initAddress, processSize, priority, queueID);
 	
 	// Move process to the ready state
 	OperatingSystem_MoveToTheREADYState(PID);
@@ -240,10 +279,47 @@ int OperatingSystem_CreateProcess(USER_PROGRAMS_DATA executableProgram) {
 // always obtains the chunk whose position in memory is equal to the processor identifier
 int OperatingSystem_ObtainMainMemory(int processSize, int PID) {
 
- 	if (processSize>MAINMEMORYSECTIONSIZE)
-		return TOOBIGPROCESS;
+	int i;
+	int mejorAjuste;
+	int indice=MEMORYFULL;
+	int resta;
+	int first = 0;
 	
- 	return PID*MAINMEMORYSECTIONSIZE;
+	OperatingSystem_ShowTime(SYSMEM);
+	ComputerSystem_DebugMessage(142,SYSMEM,PID,processSize);	
+	
+	if(processSize>OperatingSystem_getBiggestPart()){
+		return TOOBIGPROCESS;
+	}
+	
+	if (freePart==0){
+		return MEMORYFULL;
+	}
+		
+	
+		for(i=0;i<numberOfPartitions;i++){		
+			resta =  partitionsTable[i].size - processSize;
+			//Comprobamos que el tamaño del proceso no sea mayor que la particion
+			if(processSize <= partitionsTable[i].size){
+				if(partitionsTable[i].occupied==0){
+			    //Si es menor nos quedamos con ella
+					if(resta < mejorAjuste || first==0){
+						first=1;
+						mejorAjuste = resta;
+						indice = i;
+					}
+				}
+			
+			    //Si es igual comprobamos las direcciones físicas
+			    //Si la direccion física es menor nos quedamos con ella
+			    if(resta == mejorAjuste ){
+				   if(partitionsTable[i].initAddress < partitionsTable[indice].initAddress){
+				        indice = i;
+				   }
+			    }
+			}
+		}		
+ 	return indice;
 }
 
 
@@ -375,8 +451,24 @@ void OperatingSystem_SaveContext(int PID) {
 void OperatingSystem_HandleException() {
   
 	// Show message "Process [executingProcessID] has generated an exception and is terminating\n"
-	OperatingSystem_ShowTime(SYSPROC);
-	ComputerSystem_DebugMessage(23,SYSPROC,executingProcessID);
+//	OperatingSystem_ShowTime(SYSPROC);
+//	ComputerSystem_DebugMessage(23,SYSPROC,executingProcessID);
+	if(Processor_GetExceptionType()==DIVISIONBYZERO){
+		OperatingSystem_ShowTime(INTERRUPT);
+		ComputerSystem_DebugMessage(140,INTERRUPT,executingProcessID,"division by zero");
+	}
+	if(Processor_GetExceptionType()==INVALIDPROCESSORMODE){
+		OperatingSystem_ShowTime(INTERRUPT);
+		ComputerSystem_DebugMessage(140,INTERRUPT,executingProcessID,"invalid processor mode");
+	}
+	if(Processor_GetExceptionType()==INVALIDADDRESS){
+		OperatingSystem_ShowTime(INTERRUPT);
+		ComputerSystem_DebugMessage(140,INTERRUPT,executingProcessID,"invalid address");
+	}
+	if(Processor_GetExceptionType()==INVALIDINSTRUCTION){
+		OperatingSystem_ShowTime(INTERRUPT);
+		ComputerSystem_DebugMessage(140,INTERRUPT,executingProcessID,"invalid instruction");
+	}
 	
 	OperatingSystem_TerminateProcess();
 	OperatingSystem_PrintStatus();
@@ -392,10 +484,14 @@ void OperatingSystem_TerminateProcess() {
 	processTable[executingProcessID].state=EXIT;
 	processTable[executingProcessID].busy=0;
 	
+	OperatingSystem_ShowPartitionTable("before releasing memory");
+	OperatingSystem_ReleaseMainMemory();
+	OperatingSystem_ShowPartitionTable("after releasing memory");
+	
 	// One more process that has terminated
 	numberOfNotTerminatedUserProcesses--;
 	
-	if (numberOfNotTerminatedUserProcesses<=0 && OperatingSystem_IsThereANewProgram()!=0) {
+	if (numberOfNotTerminatedUserProcesses<=0 && OperatingSystem_IsThereANewProgram()==-1) {
 		// Simulation must finish 
 		OperatingSystem_ReadyToShutdown();
 	}
@@ -431,9 +527,9 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_TerminateProcess();
 			OperatingSystem_PrintStatus();
 			break;
-			
+		//Cede el procesador si hay uno mas prioritario	
 		case SYSCALL_YIELD:			
-				if(processTable[processToRun].priority==processTable[executingProcessID].priority){					
+				if(executingProcessID !=processToRun && processTable[processToRun].priority==processTable[executingProcessID].priority){					
 					OperatingSystem_PreemptRunningProcess();	
 					OperatingSystem_Dispatch(OperatingSystem_ShortTermScheduler());	
 					OperatingSystem_ShowTime(SHORTTERMSCHEDULE);					
@@ -449,6 +545,13 @@ void OperatingSystem_HandleSystemCall() {
 			executingProcessID = NOPROCESS;
 			int selectedProcess = OperatingSystem_ShortTermScheduler();
 			OperatingSystem_Dispatch(selectedProcess);		
+			OperatingSystem_PrintStatus();
+			break;
+			
+		default:
+			OperatingSystem_ShowTime(INTERRUPT);					
+			ComputerSystem_DebugMessage(141,INTERRUPT,executingProcessID,systemCallID);
+			OperatingSystem_TerminateProcess();
 			OperatingSystem_PrintStatus();
 			break;
 	}
@@ -545,7 +648,7 @@ void OperatingSystem_InterruptLogic(int entryPoint){
  void OperatingSystem_CheckPriority(){
 	 int processToRun=readyToRunQueue[0][0];
 	 
-	 if(processTable[processToRun].priority < processTable[executingProcessID].priority){	
+	 if(processTable[processToRun].priority < processTable[executingProcessID].priority || executingProcessID==0){	
 		OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
 		ComputerSystem_DebugMessage(121,SHORTTERMSCHEDULE,executingProcessID,processToRun);
 		OperatingSystem_PreemptRunningProcess();	
@@ -558,4 +661,40 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 	return executingProcessID;
 }	
 
+
+void OperatingSystem_ReleaseMainMemory(){
+	int i;
+	for(i=0;i<numberOfPartitions;i++){
+		if(partitionsTable[i].PID==executingProcessID && partitionsTable[i].occupied !=0){
+			partitionsTable[i].occupied=0;
+			freePart++;
+			OperatingSystem_ShowTime(SYSMEM);
+			ComputerSystem_DebugMessage(145,SYSMEM,i,partitionsTable[i].initAddress,partitionsTable[i].size,executingProcessID);	
+		}
+	}
+}
+
+void OperatingSystem_AsignaMemoria(int indice,int PID){
+	
+	OperatingSystem_ShowPartitionTable("before allocating memory");
+	
+	OperatingSystem_ShowTime(SYSMEM);		
+	ComputerSystem_DebugMessage(143,SYSMEM,indice,partitionsTable[indice].initAddress,partitionsTable[indice].size,PID);
+	freePart--;		
+	partitionsTable[indice].PID=PID;
+	partitionsTable[indice].occupied=1;
+	
+	OperatingSystem_ShowPartitionTable("after allocating memory");	
+}
+
+int OperatingSystem_ThereArePrograms(){
+	int i;
+	int progs=0;
+	for(i=0;i<numberOfReadyToRunProcesses[0];i++){
+		if(readyToRunQueue[0][i] > 0){
+			progs++;
+		}
+	}
+	return progs;
+}
 

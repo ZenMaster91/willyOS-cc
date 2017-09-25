@@ -26,6 +26,7 @@ void Processor_Show(char);
 void OperatingSystem_HandleClockInterrupt();
 void OperatingSystem_PrintStatus();
 int OperatingSystem_GetExecutingProcessID();
+void Processor_RaiseException(int);
 
 
 
@@ -40,6 +41,7 @@ int registerMAR_CPU; // Memory Address Register
 MEMORYCELL registerMBR_CPU; // Memory Buffer Register
 
 int registerA_CPU; // General purpose register
+int registerB_CPU;
 
 int interruptLines_CPU; // Processor interrupt lines
 
@@ -113,6 +115,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		
 		// Instruction MEMADD
 		case 'm':
+			registerMAR_CPU=registerIR_CPU.operand2;
 			Buses_write_AddressBus_From_To(CPU,MMU);
 			MMU_readMemory();
 			registerAccumulator_CPU=registerIR_CPU.operand1 + registerMBR_CPU.operand1;
@@ -129,7 +132,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		// Instruction DIV
 		case 'd':
 			if (registerIR_CPU.operand2 == 0)
-				Processor_RaiseInterrupt(EXCEPTION_BIT); 
+				Processor_RaiseException(DIVISIONBYZERO);
 			else {
 				registerAccumulator_CPU=registerIR_CPU.operand1 / registerIR_CPU.operand2;
 				registerPC_CPU++;
@@ -199,7 +202,7 @@ void Processor_DecodeAndExecuteInstruction() {
 			if(Processor_PSW_BitState(EXECUTION_MODE_BIT)){
 			Processor_ActivatePSW_Bit(POWEROFF_BIT);
 			}else{
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			}
 			break;
 			  
@@ -208,7 +211,7 @@ void Processor_DecodeAndExecuteInstruction() {
 			if(Processor_PSW_BitState(EXECUTION_MODE_BIT)){
 			// Show final part of HARDWARE message with CPU registers
 			// Show message: " (PC: registerPC_CPU, Accumulator: registerAccumulator_CPU, PSW: registerPSW_CPU [Processor_ShowPSW()]\n
-			ComputerSystem_DebugMessage(3, HARDWARE,registerPC_CPU,registerAccumulator_CPU,registerPSW_CPU,Processor_ShowPSW());
+			ComputerSystem_DebugMessage(130, HARDWARE,OperatingSystem_GetExecutingProcessID(),registerPC_CPU,registerAccumulator_CPU,registerPSW_CPU,Processor_ShowPSW());
 			// Not all operating system code is executed in simulated processor, but really must do it... 
 			OperatingSystem_InterruptLogic(registerIR_CPU.operand1);
 			registerPC_CPU++;
@@ -216,7 +219,7 @@ void Processor_DecodeAndExecuteInstruction() {
 			Processor_UpdatePSW();
 			return; // Note: message show before... for operating system messages after...
 			}else{
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			}
 			break;
 		// Instruction IRET
@@ -225,13 +228,14 @@ void Processor_DecodeAndExecuteInstruction() {
 				registerPC_CPU=Processor_CopyFromSystemStack(MAINMEMORYSIZE-1);
 				registerPSW_CPU=Processor_CopyFromSystemStack(MAINMEMORYSIZE-2);
 			}else{
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			}
 			break;		
 
 		// Unknown instruction
 		default : 
-			registerPC_CPU++;
+			Processor_RaiseException(INVALIDINSTRUCTION);
+			registerA_CPU++;
 			break;
 	}
 	
@@ -460,3 +464,12 @@ void Processor_Show(char section) {
 	ComputerSystem_DebugMessage(Processor_PSW_BitState(EXECUTION_MODE_BIT)?5:4,section,Clock_GetTime());
 }
 
+//Se invoca cada vez que se produce una excepción
+void Processor_RaiseException(int typeOfException) {
+Processor_RaiseInterrupt(EXCEPTION_BIT);
+registerB_CPU=typeOfException;
+}
+
+int Processor_GetExceptionType(){
+	return registerB_CPU;
+}

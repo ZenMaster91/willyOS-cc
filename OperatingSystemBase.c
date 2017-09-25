@@ -14,8 +14,21 @@
 int OperatingSystem_lineBeginsWithANumber(char *);
 void OperatingSystem_PrintSleepingProcessQueue();
 void OperatingSystem_PrintExecutingProcessInformation();
+int OperatingSystem_getBiggestPart();
+
+
+//Mayor particion
+int biggestPart=0;
+//Particiones Libres
+int freePart=0;
+
+
+#ifdef MEMCONFIG
+PARTITIONDATA partitionsTable[PARTITIONTABLEMAXSIZE];
+#endif
 
 extern int executingProcessID;
+
 
 // Search for a free entry in the process table. The index of the selected entry
 // will be used as the process identifier
@@ -188,11 +201,14 @@ void OperatingSystem_PrintStatus(){
 void OperatingSystem_PrintExecutingProcessInformation(){ 
 #ifdef SLEEPINGQUEUE
 
-  OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
-  // Show message "Running Process Information:\n\t\t[PID: executingProcessID, Priority: priority, WakeUp: whenToWakeUp, Queue: queueID]\n"
-  ComputerSystem_DebugMessage(28,SHORTTERMSCHEDULE,
-	executingProcessID,processTable[executingProcessID].priority,processTable[executingProcessID].whenToWakeUp
-	,processTable[executingProcessID].queueID?"DAEMONS":"USER");
+	OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
+	if (executingProcessID>=0)
+		// Show message "Running Process Information:\n\t\t[PID: executingProcessID, Priority: priority, WakeUp: whenToWakeUp, Queue: queueID]\n"
+		ComputerSystem_DebugMessage(28,SHORTTERMSCHEDULE,
+			executingProcessID,processTable[executingProcessID].priority,processTable[executingProcessID].whenToWakeUp
+			,processTable[executingProcessID].queueID?"DAEMONS":"USER");
+	else
+		ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,"Running Process Information:\n\t\t[--- No running process ---]\n");
 
 #endif
 }
@@ -244,3 +260,73 @@ int OperatingSystem_IsThereANewProgram() {
 #endif		 
 		return 0;  //  No program in current time
 }
+
+// Function to initialize the partition table
+// Return number of partitions readed
+int OperatingSystem_InitializePartitionTable() {
+#ifdef MEMCONFIG
+	char lineRead[MAXLINELENGTH];
+	FILE *fileMemConfig;
+	
+	fileMemConfig= fopen(MEMCONFIG, "r");
+	if (fileMemConfig==NULL)
+		return 0;
+	int number = 0;
+	// The initial physical address of the first partition is 0
+	int initAddress=0;
+	int currentPartition=0;
+	
+	// The file is processed line by line
+	while (fgets(lineRead, MAXLINELENGTH, fileMemConfig) != NULL) {
+		number=atoi(lineRead);
+		// "number" is the size of a just read partition
+		partitionsTable[currentPartition].initAddress=initAddress;
+		partitionsTable[currentPartition].size=number;
+		partitionsTable[currentPartition].occupied=0;
+		
+		//Le asignamos a biggestPar la particion más grande
+		if(partitionsTable[currentPartition].size >= biggestPart){
+			biggestPart=partitionsTable[currentPartition].size;
+		}
+		
+		// Next partition will begin at the updated "initAdress"
+		initAddress+=number;
+		// There is now one more partition
+		currentPartition++;
+		
+		if (currentPartition==PARTITIONTABLEMAXSIZE)
+			break;  // No more lines than partitions
+	}
+
+	int numOfPartitions = currentPartition;
+	for (;currentPartition< PARTITIONTABLEMAXSIZE;currentPartition++)
+			partitionsTable[currentPartition].initAddress=-1;
+
+	return numOfPartitions;
+#else
+	return 0;
+#endif
+}
+
+// Show partition table
+void OperatingSystem_ShowPartitionTable(char *mensaje) {
+#ifdef MEMCONFIG
+  	int i;
+	
+	OperatingSystem_ShowTime(SYSMEM);
+	ComputerSystem_DebugMessage(40,SYSMEM, mensaje);
+	for (i=0;i<PARTITIONTABLEMAXSIZE && partitionsTable[i].initAddress>=0;i++) {
+		ComputerSystem_DebugMessage(41,SYSMEM,i,partitionsTable[i].initAddress,partitionsTable[i].size);
+		if (partitionsTable[i].occupied)
+			ComputerSystem_DebugMessage(42,SYSMEM,partitionsTable[i].PID);
+		else
+			ComputerSystem_DebugMessage(43,SYSMEM,"AVAILABLE");
+	}
+#endif
+}
+
+
+int OperatingSystem_getBiggestPart(){
+	return biggestPart;
+}
+

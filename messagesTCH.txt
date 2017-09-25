@@ -18,6 +18,10 @@
 28,Running Process Information:\n\t\t[PID: @G%d@@, Priority: %d, WakeUp: @R%d@@, Queue: %s]\n
 29,Arrival Time Queue:\n
 30,\t\t[@G%s@@, @R%d@@]\n
+40,Main memory state (@G%s@@):\n
+41,\t\t[@G%d@@] [@G%d@@ -> @G%d@@]
+42,[@G%d@@]\n
+43,[@G%s@@]\n
 
 //  ComputerSystem messages
 99,@REND of the simulation@@\n

@@ -30,6 +30,10 @@
 
 #define SLEEPINGQUEUE
 
+#define MEMCONFIG "MemConfig" 
+
+#define MEMORYFULL -5
+
 // Enumerated type containing all the possible process states
 enum ProcessStates { NEW, READY, EXECUTING, BLOCKED, EXIT};
 

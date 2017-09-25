@@ -13,6 +13,9 @@ enum PSW_BITS {POWEROFF_BIT=0, ZERO_BIT=1, NEGATIVE_BIT=2, OVERFLOW_BIT=3, EXECU
 // interrupt types 
 enum INT_BITS {SYSCALL_BIT=2, EXCEPTION_BIT=6, CLOCKINT_BIT=9};
 
+//Tipos de excepciones que se pueden producir
+enum EXCEPTIONS {DIVISIONBYZERO, INVALIDPROCESSORMODE, INVALIDADDRESS, INVALIDINSTRUCTION};
+
 // Functions prototypes
 void Processor_InitializeInterruptVectorTable();
 void Processor_InstructionCycleLoop();
