@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
+#include "Device.h"
 
 // Functions prototypes
 void OperatingSystem_CreateDaemons();
@@ -36,6 +37,16 @@ int OperatingSystem_getBiggestPart();
 void OperatingSystem_ReleaseMainMemory();
 void OperatingSystem_AsignaMemoria(int,int);
 int OperatingSystem_ThereArePrograms();
+void OperatingSystem_HandleIOEndInterrupt();
+void OperatingSystem_IOScheduler();
+void OperatingSystem_DeviceControlerStartIOOperation();
+int Device_GetStatus();
+void Device_StartIO(int);
+int QueueFIFO_add(int,int[],int *,int);
+int QueueFIFO_poll(int[], int*);
+void Device_Initialize(char *, int);
+int OperatingSystem_DeviceControlerEndIOOperation();
+
 
 
 
@@ -70,8 +81,12 @@ int numberOfSleepingProcesses=0;
 
 //Numero de particiones
 int numberOfPartitions=0;
-
+//Numero de particiones libres
 int freePart;
+
+//Cola FIFO
+int IOWaitingProcessesQueue[PROCESSTABLEMAXSIZE];
+int numberOfIOWaitingProcesses=0; 
 
 
 // Initial set of tasks of the OS
@@ -105,6 +120,9 @@ void OperatingSystem_Initialize() {
 	
 	// Create all system daemon processes
 	OperatingSystem_CreateDaemons();
+	
+	//Llamada al dispositivo de entrada/salida
+	Device_Initialize ("OutputDevice-2017", 7); 
 	
 	if (sipID<0) {
 		// Show message "ERROR: Missing SIP program!\n"
@@ -548,6 +566,19 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_PrintStatus();
 			break;
 			
+			
+		case SYSCALL_IO:
+			//Bloqueamos el proceso y se pasa ejecutar el siguiente
+			OperatingSystem_SaveContext(executingProcessID);
+			//OperatingSystem_MoveToTheBLOCKEDState(executingProcessID);
+			processTable[executingProcessID].state=BLOCKED;
+			//Invocamos al manejador independiente
+			OperatingSystem_IOScheduler();
+			executingProcessID = NOPROCESS;
+			//int selectedProcess = OperatingSystem_ShortTermScheduler();
+			OperatingSystem_Dispatch(OperatingSystem_ShortTermScheduler());		
+			break;
+			
 		default:
 			OperatingSystem_ShowTime(INTERRUPT);					
 			ComputerSystem_DebugMessage(141,INTERRUPT,executingProcessID,systemCallID);
@@ -568,6 +599,9 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 			break;		
 		case CLOCKINT_BIT:  //INTERRUPCIÓN DE RELOJ
 			OperatingSystem_HandleClockInterrupt();
+			break;
+		case IOEND_BIT:		//INTERRUPCIÓN DE ENTRADA/SALIDA
+			OperatingSystem_HandleIOEndInterrupt();
 			break;
 			
 	}
@@ -697,4 +731,51 @@ int OperatingSystem_ThereArePrograms(){
 	}
 	return progs;
 }
+
+
+//Manejador interrupciones entrada/salida
+void OperatingSystem_HandleIOEndInterrupt(){
+	int processToExecute;
+	//Despertamos al proceso que termina la operación de entrada/salida
+	 processToExecute=QueueFIFO_poll(IOWaitingProcessesQueue,&numberOfIOWaitingProcesses);
+	 numberOfIOWaitingProcesses--;
+	 OperatingSystem_MoveToTheREADYState(processToExecute);
+	 
+	 //Pedir al manejador dependiente del dispositivo que se disponga a gestionar la siguiente petición pendiente
+	 OperatingSystem_DeviceControlerEndIOOperation(processToExecute);
+	 
+	 //Requisar el procesador al proceso en ejecución si fuese necesario
+	 OperatingSystem_CheckPriority();
+}
+
+
+//Manejador Independiente
+void OperatingSystem_IOScheduler(){
+	//Añadimos la petición a la cola de peticiones
+	//Hay que avisar al manegador dependiente si la operación se realiza con exito  ;  //PID,COLA,NUMERO_ELEMENTS,LIMIT
+	if(QueueFIFO_add(executingProcessID,IOWaitingProcessesQueue,&numberOfIOWaitingProcesses,PROCESSTABLEMAXSIZE) >=0){
+		numberOfIOWaitingProcesses++;
+		OperatingSystem_DeviceControlerStartIOOperation();
+	}	
+}
+
+
+
+//Funcion 1 Manejador dependiente
+void OperatingSystem_DeviceControlerStartIOOperation(){
+	
+	if(Device_GetStatus()==FREE){  //Si el dispositivo está libre le pasamos el pid
+		Device_StartIO(IOWaitingProcessesQueue[0]);
+		
+	}
+}
+
+//Funcion 2 Manejador Dependiente
+int OperatingSystem_DeviceControlerEndIOOperation(int PID){
+	if(numberOfIOWaitingProcesses>0){
+		OperatingSystem_DeviceControlerStartIOOperation();
+	}
+	return PID;
+}
+
 

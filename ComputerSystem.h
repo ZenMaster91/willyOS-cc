@@ -26,6 +26,7 @@ void ComputerSystem_DebugMessage(int, char , ...);
 #define LONGTERMSCHEDULE 'l'    // Only messages related to the long term scheduler of the operating system
 #define SHORTTERMSCHEDULE 's'   // Only messages related to the short term scheduler of the operating system
 #define ERROR 'e'				// Error messages
+#define DEVICE 'v'
 
 // Basic data to collect about every user program specified in
 // the command line: name of the file and the time of its arrival

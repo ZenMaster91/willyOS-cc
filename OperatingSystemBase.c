@@ -14,21 +14,25 @@
 int OperatingSystem_lineBeginsWithANumber(char *);
 void OperatingSystem_PrintSleepingProcessQueue();
 void OperatingSystem_PrintExecutingProcessInformation();
-int OperatingSystem_getBiggestPart();
+void OperatingSystem_PrintIOQueue();
 
+int OperatingSystem_getBiggestPart();
 
 //Mayor particion
 int biggestPart=0;
 //Particiones Libres
 int freePart=0;
 
-
 #ifdef MEMCONFIG
 PARTITIONDATA partitionsTable[PARTITIONTABLEMAXSIZE];
 #endif
 
-extern int executingProcessID;
+#ifdef DEVICE
+	extern int IOWaitingProcessesQueue[PROCESSTABLEMAXSIZE];
+	extern int numberOfIOWaitingProcesses; 
+#endif
 
+extern int executingProcessID;
 
 // Search for a free entry in the process table. The index of the selected entry
 // will be used as the process identifier
@@ -195,6 +199,7 @@ void OperatingSystem_PrintStatus(){
 	OperatingSystem_PrintReadyToRunQueue();  // Show Ready to run queues implemented for students
 	OperatingSystem_PrintSleepingProcessQueue(); // Show Sleeping process queue
 	ComputerSystem_PrintArrivalTimeQueue(); // Show arrival queue of user programs
+	OperatingSystem_PrintIOQueue();
 }
 
  // Show Executing process information
@@ -293,7 +298,6 @@ int OperatingSystem_InitializePartitionTable() {
 		initAddress+=number;
 		// There is now one more partition
 		currentPartition++;
-		
 		if (currentPartition==PARTITIONTABLEMAXSIZE)
 			break;  // No more lines than partitions
 	}
@@ -325,6 +329,27 @@ void OperatingSystem_ShowPartitionTable(char *mensaje) {
 #endif
 }
 
+// Show IOWaitingProcessesQueue 
+void OperatingSystem_PrintIOQueue(){ 
+#ifdef DEVICE
+
+	int i;
+	OperatingSystem_ShowTime(DEVICE);
+	//  Show message "Input/Output Queue:\n\t\t");
+	ComputerSystem_DebugMessage(51,DEVICE);
+	if (numberOfIOWaitingProcesses>0)
+		for (i=0; i< numberOfIOWaitingProcesses; i++) {
+			// Show message [PID]
+			ComputerSystem_DebugMessage(52,DEVICE,IOWaitingProcessesQueue[i]);
+			if (i<numberOfIOWaitingProcesses-1)
+	  			ComputerSystem_DebugMessage(6,DEVICE,", ");
+  		}
+  	else 
+	  	ComputerSystem_DebugMessage(6,DEVICE,"[--- empty queue ---]");
+  ComputerSystem_DebugMessage(6,DEVICE,"\n");
+  
+#endif
+}
 
 int OperatingSystem_getBiggestPart(){
 	return biggestPart;

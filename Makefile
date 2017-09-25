@@ -13,8 +13,8 @@ INCLUDES =
 LIBRERIAS =
 ACC = /var/asignaturas/ssoo/ACC/bin/acc
 
-${PROGRAM}: Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o MMU.o Buses.o Aspect.o Clock.o Heap.o Messages.o
-	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o Buses.o MMU.o Aspect.o Clock.o Heap.o Messages.o $(LIBRERIAS)
+${PROGRAM}: Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o MMU.o Buses.o Aspect.o Clock.o Heap.o Messages.o Device.o QueueFIFO.o
+	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o Buses.o MMU.o Aspect.o Clock.o Heap.o Messages.o Device.o QueueFIFO.o $(LIBRERIAS)
 
 Simulator.o: Simulator.c Simulator.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Simulator.c
@@ -66,6 +66,12 @@ Clock.o: Clock.c Clock.h
 
 Heap.o: Heap.c Heap.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Heap.c
-
+	
+Device.o: Device.c Device.h
+	$(CC) $(STDCFLAGS) $(INCLUDES) Device.c	
+	
+QueueFIFO.o: QueueFIFO.c QueueFIFO.h
+	$(CC) $(STDCFLAGS) $(INCLUDES) QueueFIFO.c
+	
 clean:
 	rm -f $(PROGRAM) *.o *~ *.mc *.acc Aspect.c ProcessorAspect.c OperatingSystemAspect.c core

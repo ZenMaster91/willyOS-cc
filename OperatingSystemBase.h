@@ -18,12 +18,10 @@ int OperatingSystem_IsThereANewProgram();
 int OperatingSystem_InitializePartitionTable();
 void OperatingSystem_ShowPartitionTable(char *); 
 
-
 extern int sleepingProcessesQueue[PROCESSTABLEMAXSIZE];
 extern int numberOfSleepingProcesses; 
 
 #ifdef MEMCONFIG
-// Copy to OperatingSystem.h Exercise 8 of V4
 typedef struct {
      int occupied;
      int initAddress; // Lowest physical address of the partition
