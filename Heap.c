@@ -1,12 +1,10 @@
-#include "Heap.h"
 #include <stdlib.h>
+#include "Heap.h"
+#include "OperatingSystem.h"
 
 // Internal Functions prototypes
 void Heap_swap_Up(int, int[], int);
 void Heap_swap_Down(int, int[], int, int);
-int Heap_compare_priority(int, int);
-int Heap_compare_wakeup(int, int);
-int Heap_compare_arrival(int, int);
 
 
 // Insertion of a PID into a binary heap
@@ -82,37 +80,39 @@ void Heap_swap_Down(int p, int heap[], int queueType, int numElem) {
 	} // leaf-node...
 }
 
-// Auxiliar for generic comparations
-int Heap_compare(int uno, int dos, int queueType) {
-  
-  switch (queueType) {
-	case QUEUE_PRIORITY:
-	  return Heap_compare_priority(uno, dos);
-	case QUEUE_WAKEUP:
-	  return Heap_compare_wakeup(uno, dos);
-	case QUEUE_ARRIVAL:
-	  return Heap_compare_arrival(uno, dos);
-	default:
-	  return 0; // 
-  }
-  
-}
-
 // Auxiliar for priority comparations
-int Heap_compare_priority(int uno, int dos) {
-  return processTable[dos].priority-processTable[uno].priority;
+int Heap_compare_priority(int value1, int value2) {
+  return processTable[value2].priority-processTable[value1].priority;
 }
 
 // Auxiliar for  WakeUp-time comparations
-int Heap_compare_wakeup(int uno, int dos) {
-  return 0;
-//   return processTable[dos].whenToWakeUp - processTable[uno].whenToWakeUp;
+int Heap_compare_wakeup(int value1, int value2) {
+#ifdef SLEEPINGQUEUE
+	return processTable[value2].whenToWakeUp - processTable[value1].whenToWakeUp;
+#else
+	return 0;
+#endif
 }
 
-// Auxiliar for arival-time comparations
-int Heap_compare_arrival(int uno, int dos) {
-  return userProgramsList[dos]->arrivalTime - userProgramsList[uno]->arrivalTime;
+// Auxiliar for arrival-time comparations
+int Heap_compare_arrival(int value1, int value2) {
+  return userProgramsList[value2]->arrivalTime - userProgramsList[value1]->arrivalTime;
 }
 
+
+// Auxiliar for generic comparations
+int Heap_compare(int value1, int value2, int queueType) {
+  
+  switch (queueType) {
+	case QUEUE_PRIORITY:
+	  return Heap_compare_priority(value1, value2);
+	case QUEUE_WAKEUP:
+	  return Heap_compare_wakeup(value1, value2);
+	case QUEUE_ARRIVAL:
+	  return Heap_compare_arrival(value1, value2);
+	default:
+	  return 0; // 
+  }
+}
 
 

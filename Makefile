@@ -11,9 +11,10 @@ CC = cc
 STDCFLAGS = -g -c -Wall
 INCLUDES =
 LIBRERIAS =
+ACC = /var/asignaturas/ssoo/ACC/bin/acc
 
-${PROGRAM}: Simulator.o ComputerSystem.o Messages.o MainMemory.o OperatingSystem.o OperatingSystemBase.o Processor.o MMU.o Buses.o Heap.o
-	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o Messages.o MainMemory.o OperatingSystem.o OperatingSystemBase.o Processor.o Buses.o MMU.o Heap.o $(LIBRERIAS)
+${PROGRAM}: Simulator.o ComputerSystem.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o MMU.o Buses.o Aspect.o Clock.o Heap.o Messages.o
+	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o Buses.o MMU.o Aspect.o Clock.o Heap.o Messages.o $(LIBRERIAS)
 
 Simulator.o: Simulator.c Simulator.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Simulator.c
@@ -27,14 +28,29 @@ Messages.o: Messages.c Messages.h
 MainMemory.o: MainMemory.c MainMemory.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) MainMemory.c
 
-OperatingSystem.o: OperatingSystem.c OperatingSystem.h
-	$(CC) $(STDCFLAGS) $(INCLUDES) OperatingSystem.c
+OperatingSystemAspect.o: OperatingSystemAspect.mc Aspect.acc
+	$(ACC) OperatingSystemAspect.mc Aspect.acc
+	$(CC) $(STDCFLAGS) $(INCLUDES) -L /tmp/ACC/lib -lacc OperatingSystemAspect.c
 
-OperatingSystemBase.o: OperatingSystemBase.c OperatingSystemBase.h
+OperatingSystemAspect.mc: OperatingSystem.c OperatingSystem.h
+	$(CC) -E $(INCLUDES) OperatingSystem.c > OperatingSystemAspect.mc
+
+OperatingSystemBase.o: OperatingSystemBase.c OperatingSystemBase.h OperatingSystem.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) OperatingSystemBase.c
 
-Processor.o: Processor.c Processor.h
-	$(CC) $(STDCFLAGS) $(INCLUDES) Processor.c
+ProcessorAspect.o: ProcessorAspect.mc Aspect.acc
+	$(ACC) ProcessorAspect.mc Aspect.acc
+	$(CC) $(STDCFLAGS) $(INCLUDES) -L /tmp/ACC/lib -lacc ProcessorAspect.c
+
+ProcessorAspect.mc: Processor.c Processor.h
+	$(CC) -E $(INCLUDES) Processor.c > ProcessorAspect.mc
+
+Aspect.o: Aspect.acc
+	$(ACC) Aspect.acc
+	$(CC) $(STDCFLAGS) $(INCLUDES) -L /tmp/ACC/lib -lacc Aspect.c
+
+Aspect.acc: OperatingSystem.h Processor.h MyAspect.c
+	$(CC) -E $(INCLUDES) MyAspect.c > Aspect.acc
 
 Buses.o: Buses.c Buses.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Buses.c
@@ -42,8 +58,11 @@ Buses.o: Buses.c Buses.h
 MMU.o: MMU.c MMU.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) MMU.c
 
+Clock.o: Clock.c Clock.h
+	$(CC) $(STDCFLAGS) $(INCLUDES) Clock.c
+
 Heap.o: Heap.c Heap.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Heap.c
 
 clean:
-	rm -f $(PROGRAM) *.o *~ core 
+	rm -f $(PROGRAM) *.o *~ *.mc *.acc Aspect.c ProcessorAspect.c OperatingSystemAspect.c core

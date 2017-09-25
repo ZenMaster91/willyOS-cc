@@ -4,6 +4,7 @@
 #include "MMU.h"
 #include <stdio.h>
 #include <string.h>
+#include "Clock.h"
 
 // Internals Functions prototypes
 
@@ -21,6 +22,10 @@ void Processor_SetRegisterA(int);
 int Processor_GetAccumulator();
 void Processor_SetAccumulator(int);
 int Processor_GetAccumulator();
+void OperatingSystem_Show(char);
+void OperatingSystem_HandleClockInterrupt();
+void OperatingSystem_PrintStatus();
+
 
 
 // void Processor_SetRegisterA(int);
@@ -62,7 +67,7 @@ void Processor_InstructionCycleLoop() {
 	while (!Processor_PSW_BitState(POWEROFF_BIT)) {
 		Processor_FetchInstruction();
 		Processor_DecodeAndExecuteInstruction();
-		if (interruptLines_CPU)
+		if (interruptLines_CPU && !Processor_PSW_BitState(INTERRUPT_MASKED_BIT) )
 			Processor_ManageInterrupts();
 	}
 }
@@ -81,6 +86,7 @@ void Processor_FetchInstruction() {
 	  memcpy((void *) (&registerIR_CPU), (void *) (&registerMBR_CPU), sizeof(MEMORYCELL));
 	// Show initial part of HARDWARE message with Operation Code and operands
 	  // Show message: operationCode operand1 operand2
+		OperatingSystem_Show(HARDWARE);
 		ComputerSystem_DebugMessage(1, HARDWARE, registerIR_CPU.operationCode, registerIR_CPU.operand1, registerIR_CPU.operand2);
 	}
 	else 
@@ -251,7 +257,9 @@ void Processor_ManageInterrupts() {
 				Processor_CopyInSystemStack(MAINMEMORYSIZE-1, registerPC_CPU);
 				Processor_CopyInSystemStack(MAINMEMORYSIZE-2, registerPSW_CPU);	
 				// Activate protected excution mode
+				Processor_ActivatePSW_Bit(INTERRUPT_MASKED_BIT);
 				Processor_ActivatePSW_Bit(EXECUTION_MODE_BIT);
+				
 				// Call the appropriate OS interrupt-handling routine setting PC register
 				registerPC_CPU=interruptVectorTable[i];
 				break; // Don't process another interrupt
@@ -438,8 +446,15 @@ char * Processor_ShowPSW(){
 		pswmask[tam-ZERO_BIT]='Z';
 	if (Processor_PSW_BitState(POWEROFF_BIT))
 		pswmask[tam-POWEROFF_BIT]='S';
+	if (Processor_PSW_BitState(INTERRUPT_MASKED_BIT))
+		pswmask[tam-INTERRUPT_MASKED_BIT]='M';
 	return pswmask;
 }
 
 /////////////////////////////////////////////////////////
 //  New functions below this line  //////////////////////
+
+
+void OperatingSystem_Show(char section) {
+	ComputerSystem_DebugMessage(Processor_PSW_BitState(EXECUTION_MODE_BIT)?5:4,section,Clock_GetTime());
+}

@@ -2,13 +2,19 @@
 #include "OperatingSystem.h"
 #include "Processor.h"
 #include "Buses.h"
+#include "Clock.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
 
 // Code that students should NOT touch
-int OperatingSystem_lineBeginsWithANumber(char *);
 
+// Functions prototype
+int OperatingSystem_lineBeginsWithANumber(char *);
+void OperatingSystem_PrintSleepingProcessQueue();
+void OperatingSystem_PrintExecutingProcessInformation();
+
+extern int executingProcessID;
 
 // Search for a free entry in the process table. The index of the selected entry
 // will be used as the process identifier
@@ -27,7 +33,6 @@ int OperatingSystem_ObtainAnEntryInTheProcessTable() {
 	}
 	return NOFREEENTRY;
 }
-
 
 // Returns the size of the program, stored in the program file
 int OperatingSystem_ObtainProgramSize(FILE **programFile, char *program) {
@@ -159,3 +164,49 @@ void OperatingSystem_ReadyToShutdown(){
 
 }
 
+
+// Show time messages
+void OperatingSystem_ShowTime(char section) {
+	ComputerSystem_DebugMessage(6,section,Processor_PSW_BitState(EXECUTION_MODE_BIT)?"\t":"");
+	ComputerSystem_DebugMessage(Processor_PSW_BitState(EXECUTION_MODE_BIT)?5:4,section,Clock_GetTime());
+}
+
+// Show general status
+void OperatingSystem_PrintStatus(){ 
+  OperatingSystem_PrintReadyToRunQueue();
+  OperatingSystem_PrintSleepingProcessQueue();
+  OperatingSystem_PrintExecutingProcessInformation();
+ }
+
+ // Show Executing process information
+void OperatingSystem_PrintExecutingProcessInformation(){ 
+#ifdef SLEEPINGQUEUE
+
+  OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
+  // Show message "Running Process Information: [PID: executingProcessID, Priority: priority, WakeUp: whenToWakeUp, Queue: queueID]\n"
+  ComputerSystem_DebugMessage(28,SHORTTERMSCHEDULE,
+	executingProcessID,processTable[executingProcessID].priority,processTable[executingProcessID].whenToWakeUp
+	,processTable[executingProcessID].queueID?"DAEMONS":"USER");
+
+#endif
+}
+
+// Show SleepingProcessQueue 
+void OperatingSystem_PrintSleepingProcessQueue(){ 
+#ifdef SLEEPINGQUEUE
+
+  int i;
+  OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
+  //  Show message "SLEEPING Queue: ");
+  ComputerSystem_DebugMessage(26,SHORTTERMSCHEDULE);
+  for (i=0; i< numberOfSleepingProcesses; i++) {
+	// Show message [PID, priority, whenToWakeUp]
+	ComputerSystem_DebugMessage(27,SHORTTERMSCHEDULE,
+		sleepingProcessesQueue[i],processTable[sleepingProcessesQueue[i]].priority,processTable[sleepingProcessesQueue[i]].whenToWakeUp);
+	if (i<numberOfSleepingProcesses-1)
+	  ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,", ");
+  }
+  ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,"\n");
+  
+#endif
+}
