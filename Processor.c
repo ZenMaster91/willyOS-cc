@@ -22,9 +22,10 @@ void Processor_SetRegisterA(int);
 int Processor_GetAccumulator();
 void Processor_SetAccumulator(int);
 int Processor_GetAccumulator();
-void OperatingSystem_Show(char);
+void Processor_Show(char);
 void OperatingSystem_HandleClockInterrupt();
 void OperatingSystem_PrintStatus();
+int OperatingSystem_GetExecutingProcessID();
 
 
 
@@ -86,7 +87,7 @@ void Processor_FetchInstruction() {
 	  memcpy((void *) (&registerIR_CPU), (void *) (&registerMBR_CPU), sizeof(MEMORYCELL));
 	// Show initial part of HARDWARE message with Operation Code and operands
 	  // Show message: operationCode operand1 operand2
-		OperatingSystem_Show(HARDWARE);
+		Processor_Show(HARDWARE);
 		ComputerSystem_DebugMessage(1, HARDWARE, registerIR_CPU.operationCode, registerIR_CPU.operand1, registerIR_CPU.operand2);
 	}
 	else 
@@ -239,7 +240,7 @@ void Processor_DecodeAndExecuteInstruction() {
 	
 	// Show final part of HARDWARE message with	CPU registers
 	// Show message: " (PC: registerPC_CPU, Accumulator: registerAccumulator_CPU, PSW: registerPSW_CPU [Processor_ShowPSW()]\n
-	ComputerSystem_DebugMessage(3, HARDWARE,registerPC_CPU,registerAccumulator_CPU,registerPSW_CPU,Processor_ShowPSW());
+	ComputerSystem_DebugMessage(130,HARDWARE,OperatingSystem_GetExecutingProcessID(),registerPC_CPU,registerAccumulator_CPU,registerPSW_CPU,Processor_ShowPSW());
 }
 	
 	
@@ -455,6 +456,7 @@ char * Processor_ShowPSW(){
 //  New functions below this line  //////////////////////
 
 
-void OperatingSystem_Show(char section) {
+void Processor_Show(char section) {
 	ComputerSystem_DebugMessage(Processor_PSW_BitState(EXECUTION_MODE_BIT)?5:4,section,Clock_GetTime());
 }
+

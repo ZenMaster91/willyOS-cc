@@ -14,6 +14,7 @@ void OperatingSystem_ReadyToShutdown();
 void OperatingSystem_ShowTime(char);
 void OperatingSystem_PrintStatus();
 void OperatingSystem_PrintReadyToRunQueue();
+int OperatingSystem_IsThereANewProgram();
 
 extern int sleepingProcessesQueue[PROCESSTABLEMAXSIZE];
 extern int numberOfSleepingProcesses; 

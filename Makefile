@@ -13,13 +13,13 @@ INCLUDES =
 LIBRERIAS =
 ACC = /var/asignaturas/ssoo/ACC/bin/acc
 
-${PROGRAM}: Simulator.o ComputerSystem.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o MMU.o Buses.o Aspect.o Clock.o Heap.o Messages.o
-	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o Buses.o MMU.o Aspect.o Clock.o Heap.o Messages.o $(LIBRERIAS)
+${PROGRAM}: Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o MMU.o Buses.o Aspect.o Clock.o Heap.o Messages.o
+	$(CC) -o ${PROGRAM} Simulator.o ComputerSystem.o ComputerSystemBase.o MainMemory.o OperatingSystemAspect.o OperatingSystemBase.o ProcessorAspect.o Buses.o MMU.o Aspect.o Clock.o Heap.o Messages.o $(LIBRERIAS)
 
 Simulator.o: Simulator.c Simulator.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) Simulator.c
 
-ComputerSystem.o: ComputerSystem.c ComputerSystem.h
+ComputerSystem.o: ComputerSystem.c ComputerSystem.h ComputerSystemBase.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) ComputerSystem.c
 
 Messages.o: Messages.c Messages.h
@@ -37,6 +37,9 @@ OperatingSystemAspect.mc: OperatingSystem.c OperatingSystem.h
 
 OperatingSystemBase.o: OperatingSystemBase.c OperatingSystemBase.h OperatingSystem.h
 	$(CC) $(STDCFLAGS) $(INCLUDES) OperatingSystemBase.c
+
+ComputerSystemBase.o: ComputerSystemBase.c ComputerSystemBase.h ComputerSystem.h
+	$(CC) $(STDCFLAGS) $(INCLUDES) ComputerSystemBase.c
 
 ProcessorAspect.o: ProcessorAspect.mc Aspect.acc
 	$(ACC) ProcessorAspect.mc Aspect.acc

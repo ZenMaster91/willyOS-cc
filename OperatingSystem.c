@@ -94,9 +94,10 @@ void OperatingSystem_Initialize() {
 		exit(1);
 	}
 	
+	OperatingSystem_PrintStatus();
 	// Create all user processes from the information given in the command line
 	numberOfSuccessfullyCreatedProcesses=OperatingSystem_LongTermScheduler();
-	if(numberOfSuccessfullyCreatedProcesses==0){
+	if(numberOfSuccessfullyCreatedProcesses==0 && OperatingSystem_IsThereANewProgram()!=0){
 		OperatingSystem_ReadyToShutdown();
 	}
 	
@@ -131,11 +132,15 @@ void OperatingSystem_CreateDaemons() {
 int OperatingSystem_LongTermScheduler() {
   
 	int PID, i,
-		numberOfSuccessfullyCreatedProcesses=0;
-	
+	numberOfSuccessfullyCreatedProcesses=0;
+	int process=0;	
+
 	for (i=0 ; userProgramsList[i]!=NULL && i<USERPROGRAMSMAXNUMBER ; i++) {
-		PID=OperatingSystem_CreateProcess(*userProgramsList[i]);
-		numberOfSuccessfullyCreatedProcesses++;
+		if(OperatingSystem_IsThereANewProgram()==1){
+			process=Heap_poll(arrivalTimeQueue,QUEUE_ARRIVAL,&numberOfProgramsInArrivalTimeQueue);
+			PID=OperatingSystem_CreateProcess(*userProgramsList[process]);
+			numberOfSuccessfullyCreatedProcesses++;
+		
 		//Si el PID es igual a NOFREENTRY decrementamos el numberOfSuccessfullyCreatedProcesses porque 
 		//el proceso no se ha creado correctamente
 		if(PID==NOFREEENTRY){
@@ -158,12 +163,15 @@ int OperatingSystem_LongTermScheduler() {
 			ComputerSystem_DebugMessage(105,ERROR,userProgramsList[i]->executableName);
 			numberOfSuccessfullyCreatedProcesses--;
 		}
-		else{
+		else if(PID!=0){
 		// Show message "Process [PID] created from program [executableName]\n"
 		OperatingSystem_ShowTime(INIT);
-		ComputerSystem_DebugMessage(22,INIT,PID,userProgramsList[i]->executableName);
-		OperatingSystem_PrintStatus();
+		ComputerSystem_DebugMessage(22,INIT,PID,userProgramsList[process]->executableName);
 		}
+		}
+	}
+	if(numberOfSuccessfullyCreatedProcesses>0){
+		OperatingSystem_PrintStatus();
 	}
 	numberOfNotTerminatedUserProcesses+=numberOfSuccessfullyCreatedProcesses;
 	// Return the number of succesfully created processes
@@ -382,11 +390,12 @@ void OperatingSystem_TerminateProcess() {
 	OperatingSystem_ShowTime(SYSPROC);
 	ComputerSystem_DebugMessage(110,SYSPROC,executingProcessID,statesNames[processTable[executingProcessID].state],statesNames[4]);
 	processTable[executingProcessID].state=EXIT;
+	processTable[executingProcessID].busy=0;
 	
 	// One more process that has terminated
 	numberOfNotTerminatedUserProcesses--;
 	
-	if (numberOfNotTerminatedUserProcesses<=0) {
+	if (numberOfNotTerminatedUserProcesses<=0 && OperatingSystem_IsThereANewProgram()!=0) {
 		// Simulation must finish 
 		OperatingSystem_ReadyToShutdown();
 	}
@@ -498,6 +507,7 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 	 int cabecera = sleepingProcessesQueue[0];
 	 int processToExecute;
 	 int exit=0;
+	 int creados=0;
 	 numberOfClockInterrupts++;
 	 OperatingSystem_ShowTime(INTERRUPT);
 	 ComputerSystem_DebugMessage(120,INTERRUPT,numberOfClockInterrupts);
@@ -506,14 +516,17 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 		 if(processToExecute>=0){		
 			OperatingSystem_MoveToTheREADYState(processToExecute);
 			cabecera = sleepingProcessesQueue[0];		
-			OperatingSystem_PrintStatus();
 		 }else{
 			exit=1;
 			}
 	 }
+	 creados = OperatingSystem_LongTermScheduler();
 	 if(exit==1){
+		OperatingSystem_PrintStatus();
 		OperatingSystem_CheckPriority();
 		exit=0;
+	 }else if(creados > 0){
+		OperatingSystem_CheckPriority();
 	 }
  } 
  
@@ -531,15 +544,18 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 //Este método comprueba si hay algún proceso que tiene más prioridad que el que se está ejecutando	
  void OperatingSystem_CheckPriority(){
 	 int processToRun=readyToRunQueue[0][0];
-	 int oldProcess=executingProcessID;
 	 
 	 if(processTable[processToRun].priority < processTable[executingProcessID].priority){	
 		OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
-		ComputerSystem_DebugMessage(121,SHORTTERMSCHEDULE,oldProcess,executingProcessID);
+		ComputerSystem_DebugMessage(121,SHORTTERMSCHEDULE,executingProcessID,processToRun);
 		OperatingSystem_PreemptRunningProcess();	
 		OperatingSystem_Dispatch(OperatingSystem_ShortTermScheduler());	
 		OperatingSystem_PrintStatus();
 	 }
  }
+ 
+ int OperatingSystem_GetExecutingProcessID() {
+	return executingProcessID;
+}	
 
 

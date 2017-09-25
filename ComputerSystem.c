@@ -7,10 +7,14 @@
 #include "OperatingSystem.h"
 #include "Processor.h"
 #include "Messages.h"
+#include "Clock.h"
 
 // Functions prototypes
 void ComputerSystem_ObtainProgramList(int argc, char *argv[]);
 void ComputerSystem_PrintProgramList();
+void OperatingSystem_ShowTime();
+void ComputerSystem_Show(char);
+
 
 // Array that contains basic data about all user programs specified
 // in the command line 
@@ -23,7 +27,10 @@ char *debugLevel;
 
 // Only one colour messages. Set to 1 for more colours checking uppercase in debugLevel
 int COLOURED = 0 ;
-  
+ 
+int arrivalTimeQueue[USERPROGRAMSMAXNUMBER];
+int numberOfProgramsInArrivalTimeQueue=0;
+
 // Powers on of the Computer System.
 void ComputerSystem_PowerOn(int argc, char *argv[]) {
 
@@ -36,6 +43,7 @@ void ComputerSystem_PowerOn(int argc, char *argv[]) {
 	// Obtain a list of programs in the command line
 	ComputerSystem_ObtainProgramList(argc, argv);
 	ComputerSystem_PrintProgramList();
+	ComputerSystem_FillInArrivalTimeQueue();
 
 	// Request the OS to do the initial set of tasks. The last one will be
 	// the processor allocation to the process with the highest priority
@@ -48,7 +56,8 @@ void ComputerSystem_PowerOn(int argc, char *argv[]) {
 
 // Powers off the CS (the C program ends)
 void ComputerSystem_PowerOff() {
-	// Show message in red colour: "END of the simulation\n" 
+	// Show message in red colour: "END of the simulation\n"
+	ComputerSystem_Show(HARDWARE);
 	ComputerSystem_DebugMessage(99,HARDWARE); 
 	exit(0);
 }
@@ -234,3 +243,8 @@ void ComputerSystem_PrintProgramList(){
 }
 /////////////////////////////////////////////////////////
 //  New functions below this line  //////////////////////
+
+
+void ComputerSystem_Show(char section) {
+	ComputerSystem_DebugMessage(Processor_PSW_BitState(EXECUTION_MODE_BIT)?5:4,section,Clock_GetTime());
+}

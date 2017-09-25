@@ -2,6 +2,7 @@
 #include "OperatingSystem.h"
 #include "Processor.h"
 #include "Buses.h"
+#include "ComputerSystemBase.h"
 #include "Clock.h"
 #include <string.h>
 #include <ctype.h>
@@ -33,6 +34,7 @@ int OperatingSystem_ObtainAnEntryInTheProcessTable() {
 	}
 	return NOFREEENTRY;
 }
+
 
 // Returns the size of the program, stored in the program file
 int OperatingSystem_ObtainProgramSize(FILE **programFile, char *program) {
@@ -158,10 +160,13 @@ int OperatingSystem_lineBeginsWithANumber(char * line) {
 
 
 void OperatingSystem_ReadyToShutdown(){
+	int sipIdPCtoShutdown=processTable[sipID].initialPhysicalAddress+processTable[sipID].processSize-1;
 		// Simulation must finish (done by modifying the PC of the System Idle Process so it points to its 'halt' instruction,
 		// located at the last memory position used by that process, and dispatching sipId (next ShortTermSheduled)
-		processTable[sipID].copyOfPCRegister=processTable[sipID].initialPhysicalAddress+processTable[sipID].processSize-1;
-
+		if (executingProcessID==sipID)
+			Processor_CopyInSystemStack(MAINMEMORYSIZE-1, sipIdPCtoShutdown);
+		else
+			processTable[sipID].copyOfPCRegister=sipIdPCtoShutdown;
 }
 
 
@@ -173,17 +178,18 @@ void OperatingSystem_ShowTime(char section) {
 
 // Show general status
 void OperatingSystem_PrintStatus(){ 
-  OperatingSystem_PrintReadyToRunQueue();
-  OperatingSystem_PrintSleepingProcessQueue();
-  OperatingSystem_PrintExecutingProcessInformation();
- }
+	OperatingSystem_PrintExecutingProcessInformation(); // Show executing process information
+	OperatingSystem_PrintReadyToRunQueue();  // Show Ready to run queues implemented for students
+	OperatingSystem_PrintSleepingProcessQueue(); // Show Sleeping process queue
+	ComputerSystem_PrintArrivalTimeQueue(); // Show arrival queue of user programs
+}
 
  // Show Executing process information
 void OperatingSystem_PrintExecutingProcessInformation(){ 
 #ifdef SLEEPINGQUEUE
 
   OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
-  // Show message "Running Process Information: [PID: executingProcessID, Priority: priority, WakeUp: whenToWakeUp, Queue: queueID]\n"
+  // Show message "Running Process Information:\n\t\t[PID: executingProcessID, Priority: priority, WakeUp: whenToWakeUp, Queue: queueID]\n"
   ComputerSystem_DebugMessage(28,SHORTTERMSCHEDULE,
 	executingProcessID,processTable[executingProcessID].priority,processTable[executingProcessID].whenToWakeUp
 	,processTable[executingProcessID].queueID?"DAEMONS":"USER");
@@ -195,18 +201,46 @@ void OperatingSystem_PrintExecutingProcessInformation(){
 void OperatingSystem_PrintSleepingProcessQueue(){ 
 #ifdef SLEEPINGQUEUE
 
-  int i;
-  OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
-  //  Show message "SLEEPING Queue: ");
-  ComputerSystem_DebugMessage(26,SHORTTERMSCHEDULE);
-  for (i=0; i< numberOfSleepingProcesses; i++) {
-	// Show message [PID, priority, whenToWakeUp]
-	ComputerSystem_DebugMessage(27,SHORTTERMSCHEDULE,
-		sleepingProcessesQueue[i],processTable[sleepingProcessesQueue[i]].priority,processTable[sleepingProcessesQueue[i]].whenToWakeUp);
-	if (i<numberOfSleepingProcesses-1)
-	  ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,", ");
-  }
+	int i;
+	OperatingSystem_ShowTime(SHORTTERMSCHEDULE);
+	//  Show message "SLEEPING Queue:\n\t\t");
+	ComputerSystem_DebugMessage(26,SHORTTERMSCHEDULE);
+	if (numberOfSleepingProcesses>0)
+		for (i=0; i< numberOfSleepingProcesses; i++) {
+			// Show message [PID, priority, whenToWakeUp]
+			ComputerSystem_DebugMessage(27,SHORTTERMSCHEDULE,
+			sleepingProcessesQueue[i],processTable[sleepingProcessesQueue[i]].priority,processTable[sleepingProcessesQueue[i]].whenToWakeUp);
+			if (i<numberOfSleepingProcesses-1)
+	  			ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,", ");
+  		}
+  	else 
+	  	ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,"[--- empty queue ---]");
   ComputerSystem_DebugMessage(6,SHORTTERMSCHEDULE,"\n");
   
 #endif
+}
+
+// This function returns:
+// 		-1 if no programs in arrivalTimeQueue
+//		1 if any program arrivalTime is now
+//		0 else
+// considered by the LTS to create processes at the current time
+int OperatingSystem_IsThereANewProgram() {
+#ifdef ARRIVALQUEUE
+        int currentTime;
+		int programArrivalTime;
+
+		if (numberOfProgramsInArrivalTimeQueue <= 0)
+		  return -1;  // No new programs in command line list of programs
+		
+		// Get the current simulation time
+        currentTime = Clock_GetTime();
+		
+		// Get arrivalTime of next program
+		programArrivalTime = userProgramsList[arrivalTimeQueue[0]]->arrivalTime; 
+
+		if (programArrivalTime <= currentTime)
+		  return 1;  //  There'is new program to start
+#endif		 
+		return 0;  //  No program in current time
 }
